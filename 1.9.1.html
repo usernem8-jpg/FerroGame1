@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Стражи Октализиса 1.9.1</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #1a1a2e; color: #eee; margin: 0; padding: 10px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    #game { max-width: 500px; width: 100%; background: #16213e; border-radius: 16px; padding: 15px; box-shadow: 0 0 20px #00000066; }
+    .panel { background: #0f3460; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .bar-container { background: #1a1a2e; border-radius: 8px; height: 22px; margin: 5px 0; position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; }
+    .bar-text { position: absolute; top: 2px; left: 8px; font-size: 12px; color: white; text-shadow: 1px 1px 2px black; }
+    .hp-bar { background: #e94560; }
+    .mp-bar { background: #533483; }
+    .exp-bar { background: #f5a623; }
+    .enemy-hp-bar { background: #8b0000; height: 14px; }
+    button { background: #e94560; border: none; color: white; padding: 10px; border-radius: 8px; margin: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; width: auto; }
+    button:hover { background: #ff6b6b; }
+    button:active { transform: scale(0.97); }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .btn-group button { flex: 1 1 auto; min-width: 80px; }
+    .log { background: #0a0a1a; border-radius: 8px; padding: 8px; height: 140px; overflow-y: auto; font-size: 13px; line-height: 1.4; }
+    .log p { margin: 3px 0; }
+    .stats { display: flex; justify-content: space-between; flex-wrap: wrap; }
+    h3 { margin: 5px 0; color: #f5a623; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #16213e; border-radius: 12px; padding: 15px; max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .enemy-card { display: flex; flex-direction: column; background: #0f3460; border-radius: 8px; padding: 8px; margin: 10px 0; }
+    .gray { color: #777; }
+    .talent-row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0; border-bottom: 1px solid #2c3e50; padding-bottom: 4px; }
+    .locked { opacity: 0.5; pointer-events: none; }
+    .equip-slot { border: 1px dashed #888; padding: 5px; margin: 3px 0; border-radius: 4px; display: flex; justify-content: space-between; }
+    .equip-slot span { font-size: 12px; }
+    .badge { background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; margin-left: 5px; }
+    .badge-purple { background: #9b59b6; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; margin-left: 5px; }
+    .exp-bar-container { display: flex; align-items: center; gap: 5px; margin: 5px 0; }
+    .exp-bar-wrapper { flex: 1; }
+    .exp-label { font-size: 12px; color: #f5a623; white-space: nowrap; }
+    .quick-heal { background: #e94560; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; margin-left: 10px; }
+    .top-row { display: flex; align-items: flex-start; }
+    .victory-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #1a1a2e 0%, #0a0a1a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+    .victory-text { font-size: 2.5rem; color: #f5a623; text-shadow: 0 0 20px #f5a623; animation: glow 2s infinite alternate; }
+    @keyframes glow { from { text-shadow: 0 0 10px #f5a623; } to { text-shadow: 0 0 30px #ffd700, 0 0 40px #ff8c00; } }
+    .craft-slot { width: 50px; height: 50px; background: #555; display: inline-block; margin: 5px; border-radius: 8px; cursor: pointer; vertical-align: middle; text-align: center; line-height: 50px; font-size: 12px; overflow: hidden; }
+    .craft-slot.filled { background: #27ae60; }
+  </style>
+</head>
+<body>
+<div id="game">
+  <div id="intro-screen"><div class="panel" id="intro-text"></div><div id="intro-input-area" style="display:none;"><input type="text" id="hero-name-input" placeholder="Твоё имя" style="width:100%;padding:10px;border-radius:8px;border:none;margin:5px 0;"></div><div class="btn-group" id="intro-buttons"></div></div>
+
+  <div id="main-screen" style="display:none;">
+    <div class="panel">
+      <div class="top-row">
+        <div style="flex:1">
+          <h3 id="hero-title"></h3>
+          <div class="stats"><span>❤️ <span id="hp-text"></span></span><span>💧 <span id="mp-text"></span></span><span>Ур.<span id="lvl-text"></span></span><span>💰 <span id="gold-text"></span></span></div>
+          <div class="bar-container"><div id="hp-bar" class="bar-fill hp-bar" style="width:100%"></div><div class="bar-text" id="hp-bar-text">100/100</div></div>
+          <div class="bar-container"><div id="mp-bar" class="bar-fill mp-bar" style="width:100%"></div><div class="bar-text" id="mp-bar-text">20/20</div></div>
+          <div class="exp-bar-container"><span class="exp-label">Ур.<span id="current-lvl-label">1</span></span><div class="exp-bar-wrapper bar-container"><div id="exp-bar" class="bar-fill exp-bar" style="width:0%"></div></div><span class="exp-label">Ур.<span id="next-lvl-label">2</span></span></div>
+          <p>⚔️Атака:<span id="atk-text"></span> 🔥Магия:<span id="mag-text"></span> 🛡️Защита:<span id="def-text"></span></p>
+        </div>
+        <div class="quick-heal" onclick="quickHeal()" title="Быстрое исцеление">🧪</div>
+      </div>
+      <button onclick="openInventory()" style="background:#3a5a8c;">🎒 Инвентарь</button>
+      <button onclick="openCraft()" style="background:#6c3483;">🔮 Куб</button>
+    </div>
+    <div class="btn-group" id="town-actions">
+      <button onclick="explore()">🌲 Исследовать</button>
+      <button onclick="openShop()">🏪 Магазин</button>
+      <button id="btn-talents" onclick="openTalents()">🌟 Таланты <span id="talent-badge" class="badge" style="display:none;">0</span></button>
+      <button id="btn-guild" onclick="openGuild()">📜 Гильдия <span id="guild-badge" class="badge-purple" style="display:none;">0</span></button>
+      <button id="btn-boss" onclick="openBossMenu()">👑 Босс</button>
+    </div>
+  </div>
+
+  <div id="battle-screen" style="display:none;">
+    <div class="panel">
+      <h3>⚔️ Бой</h3>
+      <div><span id="hero-hp-battle"></span> | <span id="hero-mp-battle"></span></div>
+      <div class="bar-container"><div id="battle-hero-hp-bar" class="bar-fill hp-bar" style="width:100%"></div><div class="bar-text" id="battle-hero-hp-text">100/100</div></div>
+      <div class="enemy-card"><span id="enemy-name"></span><div class="bar-container"><div id="enemy-hp-bar" class="bar-fill enemy-hp-bar" style="width:100%"></div><div class="bar-text" id="enemy-hp-text">100/100</div></div><small id="enemy-desc"></small></div>
+      <div class="log" id="battle-log"></div>
+      <div class="btn-group" id="battle-actions">
+        <button onclick="battleAction('attack')">🗡️ Атака <span class="damage-range" id="dmg-range"></span></button>
+        <button onclick="openMagicMenu()">🔮 Магия</button>
+        <button id="btn-talk" onclick="battleAction('talk')">💬 Переговоры</button>
+        <button id="btn-steal" onclick="battleAction('steal')">💰 Кража</button>
+        <button onclick="battleAction('item')">🎒 Предмет</button>
+        <button onclick="battleAction('escape')">🏃 Сбежать</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shop-modal" class="modal"><div class="modal-content" id="shop-content"></div></div>
+  <div id="inventory-modal" class="modal"><div class="modal-content" id="inventory-content"></div></div>
+  <div id="talents-modal" class="modal"><div class="modal-content" id="talents-content"></div></div>
+  <div id="guild-modal" class="modal"><div class="modal-content" id="guild-content"></div></div>
+  <div id="result-modal" class="modal"><div class="modal-content" id="result-content"></div></div>
+  <div id="explore-modal" class="modal"><div class="modal-content" id="explore-content"></div></div>
+  <div id="magic-modal" class="modal"><div class="modal-content" id="magic-content"></div></div>
+  <div id="craft-modal" class="modal"><div class="modal-content" id="craft-content"></div></div>
+  <div id="library-modal" class="modal"><div class="modal-content" id="library-content"></div></div>
+</div>
+<script>
+  // ========== БАЗА ДАННЫХ ==========
+const ITEMS_DB = {
+  health_potion: { name:"Зелье здоровья", type:"consumable", effect:"heal", value:40, price:15 },
+  mana_potion: { name:"Зелье маны", type:"consumable", effect:"mana", value:30, price:20 },
+  big_health_potion: { name:"Большое зелье здоровья", type:"consumable", effect:"heal", value:90, price:30 },
+  big_mana_potion: { name:"Большое зелье маны", type:"consumable", effect:"mana", value:65, price:35 },
+  antidote: { name:"Антидот", type:"consumable", effect:"cure_poison", price:10 },
+  herb: { name:"Трава", type:"material", price:5, desc:"Алхимический ингредиент." },
+  mushroom: { name:"Гриб", type:"material", price:5, desc:"Алхимический ингредиент." },
+  crystal_dust: { name:"Кристальная пыль", type:"material", price:12, desc:"Магический реагент." },
+  iron_ore: { name:"Железная руда", type:"material", price:8, desc:"Кузнечный материал." }
+};
+
+let player = {
+  name:"", charClass:"", level:1, exp:0, gold:100, hp:100, maxHp:100, mp:20, maxMp:20,
+  attack:10, magicPower:5, defense:3, critChance:5, dodgeChance:2,
+  baseStr:5, baseInt:5, baseAgi:5, baseVit:5,
+  talents:{might:0, sorcery:0, agility:0, vitality:0, knowledge:0}, talentPoints:0,
+  inventory:{health_potion:2, herb:3},
+  equipment:{head:null, body:null, weapon:null, shield:null, amulet:null, boots:null, ring1:null, ring2:null, gloves:null},
+  statusEffects:[], monstersKilled:0, artifacts:0,
+  classBonusApplied:false, storyPhase:0, kitten:true,
+  fireSkill:1, waterSkill:1, earthSkill:1, airSkill:1,
+  fireExp:0, waterExp:0, earthExp:0, airExp:0,
+  blessRounds:0, hasteDoubleChance:0, activeBuffs:[],
+  bossesKilled:[], newQuestsAvailable:0,
+  learnedRecipes:[]
+};
+
+let currentMonster = null;
+let gameFlags = { talentsUnlocked:true, guildUnlocked:false, bossUnlocked:true };
+let quests = [];
+let townEntered = false;
+let shopEquipCache = [];
+
+function applyClassBonus() {
+  if (player.classBonusApplied) return;
+  if (player.charClass==='воин') { player.baseStr+=3; player.baseVit+=2; }
+  else if (player.charClass==='маг') { player.baseInt+=3; player.baseAgi+=2; }
+  else if (player.charClass==='лучник') { player.baseAgi+=3; player.baseStr+=2; }
+  player.classBonusApplied = true;
+}
+
+function updatePlayerStats() {
+  applyClassBonus();
+  let p=player;
+  p.strength = p.baseStr + p.level - 1;
+  p.intelligence = p.baseInt + p.level - 1;
+  p.agility = p.baseAgi + p.level - 1;
+  p.vitality = p.baseVit + p.level - 1;
+  let mb=p.talents.might*3, sb=p.talents.sorcery*2, ab=p.talents.agility*1, vb=p.talents.vitality*5;
+  p.maxHp = 50 + p.vitality*5 + vb;
+  p.maxMp = 20 + p.intelligence*3;
+  p.attack = 5 + p.strength*2 + mb;
+  p.magicPower = 3 + p.intelligence*2 + sb;
+  p.defense = 2 + Math.floor(p.agility/2);
+  p.critChance = 5 + p.agility*1 + p.talents.agility*3;
+  p.dodgeChance = 2 + Math.floor(p.agility*0.5) + p.talents.agility*2;
+  for (let slot of ['weapon','body','shield','head','boots','amulet','ring1','ring2','gloves']) {
+    let eq = p.equipment[slot];
+    if (!eq) continue;
+    if (eq.atk) p.attack += eq.atk;
+    if (eq.def) p.defense += eq.def;
+    if (eq.dodge) p.dodgeChance += eq.dodge;
+    if (eq.hp) p.maxHp += eq.hp;
+    if (eq.critBonus) p.critChance += eq.critBonus;
+    if (eq.fire) p.magicPower += eq.fire;
+  }
+  p.hp = Math.min(p.hp, p.maxHp);
+  p.mp = Math.min(p.mp, p.maxMp);
+}
+
+function refreshUI() {
+  document.getElementById('hero-title').textContent = `${player.name}, ${player.charClass}`;
+  document.getElementById('hp-text').textContent = `${player.hp}/${player.maxHp}`;
+  document.getElementById('mp-text').textContent = `${player.mp}/${player.maxMp}`;
+  document.getElementById('lvl-text').textContent = player.level;
+  document.getElementById('gold-text').textContent = player.gold;
+  document.getElementById('hp-bar').style.width = (player.hp/player.maxHp*100)+'%';
+  document.getElementById('hp-bar-text').textContent = `${player.hp}/${player.maxHp}`;
+  document.getElementById('mp-bar').style.width = (player.mp/player.maxMp*100)+'%';
+  document.getElementById('mp-bar-text').textContent = `${player.mp}/${player.maxMp}`;
+  document.getElementById('exp-bar').style.width = (player.exp/(player.level*30)*100)+'%';
+  document.getElementById('current-lvl-label').textContent = player.level;
+  document.getElementById('next-lvl-label').textContent = player.level+1;
+  document.getElementById('atk-text').textContent = player.attack;
+  document.getElementById('mag-text').textContent = player.magicPower;
+  document.getElementById('def-text').textContent = player.defense;
+  let badge = document.getElementById('talent-badge');
+  if (player.talentPoints > 0) { badge.style.display='inline'; badge.textContent=player.talentPoints; }
+  else badge.style.display='none';
+  let guildBadge = document.getElementById('guild-badge');
+  let activeNew = quests.filter(q => !q.seen && !q.completed).length;
+  if (gameFlags.guildUnlocked && activeNew > 0) { guildBadge.style.display='inline'; guildBadge.textContent=activeNew; }
+  else guildBadge.style.display='none';
+  document.getElementById('btn-talents').className = gameFlags.talentsUnlocked ? '' : 'locked';
+  document.getElementById('btn-guild').className = gameFlags.guildUnlocked ? '' : 'locked';
+}
+
+function addLog(elId, msg) {
+  let log = document.getElementById(elId);
+  if (log) { log.innerHTML += `<p>${msg}</p>`; log.scrollTop = log.scrollHeight; }
+}
+
+function generateRandomEquipment(slot, strong=false) {
+  let prefixes = strong ? ['Титановый','Драконий','Архангела','Бездны'] : ['Пылающий','Ледяной','Теневой','Священный','Мистический'];
+  let prefix = prefixes[Math.floor(Math.random()*prefixes.length)];
+  let baseNames = {weapon:'Клинок', body:'Доспех', head:'Шлем', shield:'Щит', boots:'Сапоги', amulet:'Амулет', ring1:'Кольцо', ring2:'Кольцо', gloves:'Перчатки'};
+  let baseName = baseNames[slot] || 'Предмет';
+  let eq = { name:`${prefix} ${baseName}`, slot:slot };
+  let r = (min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+  if (slot==='weapon') { eq.atk = strong ? r(10,15) : r(3,5); if (prefix==='Пылающий'||prefix==='Драконий') eq.fire = r(1,3); if (Math.random()<0.3) eq.critBonus = r(2,6); }
+  else if (slot==='body'||slot==='head'||slot==='shield'||slot==='gloves') eq.def = strong ? r(8,12) : r(2,4);
+  else if (slot==='boots') eq.dodge = strong ? r(4,6) : r(1,2);
+  else if (slot==='amulet'||slot==='ring1'||slot==='ring2') eq.hp = strong ? r(15,25) : r(5,10);
+  return eq;
+}
+
+function quickHeal() {
+  if (player.inventory.health_potion > 0) {
+    player.inventory.health_potion--;
+    let heal = Math.min(player.maxHp - player.hp, 40);
+    player.hp += heal;
+    alert(`Быстрое исцеление: +${heal} HP`);
+  } else if (player.inventory.big_health_potion > 0) {
+    player.inventory.big_health_potion--;
+    let heal = Math.min(player.maxHp - player.hp, 90);
+    player.hp += heal;
+    alert(`Большое исцеление: +${heal} HP`);
+  } else alert('Нет зелий здоровья!');
+  refreshUI();
+}
+// ========== ВСТУПЛЕНИЕ ==========
+let currentScene = 'start';
+const scenes = {
+  start: {
+    text: "Ты открываешь глаза и приходишь в себя. Вокруг темно, кажется, ты в пещере. В нескольких метрах от тебя мужчина в потрёпанной кожаной куртке баюкает раненого котёнка. Он не заметил, что ты очнулся.",
+    buttons: [{ label:"Осмотреться тихо", scene:'quiet' }, { label:"Громко зевнуть", scene:'yawn' }]
+  },
+  quiet: {
+    text: "Ты внимательно осматриваешься. Мужчина нежно перевязывает лапку котёнка, что-то ласково нашёптывая. В его движениях столько заботы, что ты понимаешь – ему можно доверять.",
+    buttons: [{ label:"Обратиться к нему", scene:'approach' }, { label:"Продолжить наблюдать", scene:'observe' }]
+  },
+  approach: {
+    text: "Ты решаешь заговорить. «Здравствуйте...» Мужчина поворачивается, улыбается: «Привет, дружище! Я Кайл. Ты упал тут без сознания, когда эти твари напали. Но теперь всё хорошо. Как тебя зовут?»",
+    input: true, afterInput:'common_name'
+  },
+  observe: {
+    text: "Ты продолжаешь тихо наблюдать. Закончив перевязку, Кайл замечает тебя и мягко произносит: «А, ты уже не спишь! Прости, я не хотел тебя тревожить. Я Кайл. Ты потерял сознание во время нападения. Как твоё имя?»",
+    input: true, afterInput:'common_name'
+  },
+  yawn: {
+    text: "Ты громко зеваешь. Мужчина вздрагивает и оборачивается: «О! Ты очнулся! Я очень рад, что смог тебе помочь. Я Кайл. А тебя как звать?»",
+    input: true, afterInput:'common_name'
+  },
+  common_name: {
+    text: "Кайл снова смотрит на котёнка: «Нам нужно быть осторожнее. Бедняга, ему нужна помощь...» Вдруг из темноты раздаётся демоническое рычание.",
+    buttons: [{ label:"Приготовиться к бою", scene:'kyle_sacrifice' }]
+  },
+  kyle_sacrifice: {
+    text: "Чудовищная тень вырывается из мрака. Кайл кричит: «Уходи!» и закрывает тебя собой. Удар – и Кайл падает. Он сжимает твою руку: «Возьми кольцо... позаботься о котёнке... у него добрые глаза...»",
+    buttons: [{ label:"Взять кольцо", scene:'battle_start' }]
+  },
+  battle_start: {
+    text: "Сила кольца наполняет тебя. Монстр блокирует выход. У тебя нет выбора – только сражаться.",
+    battle: true
+  }
+};
+
+function showScene(sceneId) {
+  currentScene = sceneId;
+  let scene = scenes[sceneId];
+  if (!scene) return startIntroBattle();
+  let panel = document.getElementById('intro-text');
+  let inputArea = document.getElementById('intro-input-area');
+  let btns = document.getElementById('intro-buttons');
+  btns.innerHTML = ''; inputArea.style.display = 'none';
+  panel.innerHTML = `<p>${scene.text.replace('{name}', player.name || '???')}</p>`;
+  if (scene.input) {
+    inputArea.style.display = 'block';
+    btns.innerHTML = `<button onclick="submitSceneInput('${scene.afterInput}')">Далее</button>`;
+  } else if (scene.buttons) {
+    scene.buttons.forEach(btn => btns.innerHTML += `<button onclick="goToScene('${btn.scene}')">${btn.label}</button>`);
+  } else if (scene.battle) startIntroBattle();
+}
+function goToScene(sceneId) { showScene(sceneId); }
+function submitSceneInput(nextSceneId) { player.name = document.getElementById('hero-name-input').value || 'Герой'; showScene(nextSceneId); }
+
+function startIntroBattle() {
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'block';
+  let ring = { name:"Кольцо жизни", hp:20, slot:'ring1' };
+  player.inventory["Кольцо жизни"] = { item:ring, qty:1 };
+  player.equipment.ring1 = ring;
+  updatePlayerStats(); player.hp = player.maxHp; player.mp = player.maxMp; refreshUI();
+  let demon = { name:"Демон", level:3, maxHp:100, hp:100, attack:18, defense:6, abilities:[], expReward:40, goldReward:25, lootTable:[], desc:"Порождение тьмы, вырвавшееся из мрака." };
+  startBattle(demon);
+  document.getElementById('btn-talk').classList.add('locked');
+  document.getElementById('btn-steal').classList.add('locked');
+}
+
+function postDemonBattle() {
+  let html = `<h3>Демон повержен</h3><p>Демон издыхает, но перед смертью хрипит: "Глупец... Я всего лишь марионетка колдуна Ферро... Ты слишком слаб, чтобы отомстить ему. А твой друг Кайл... этот добрый дурак заслужил свою смерть!"</p>`;
+  html += `<button onclick="resolveDemonChoice('kill')">Добить монстра</button><button onclick="resolveDemonChoice('leave')">Уйти из пещеры</button>`;
+  document.getElementById('result-content').innerHTML = html;
+  document.getElementById('result-modal').style.display = 'flex';
+}
+
+function resolveDemonChoice(action) {
+  closeModal('result-modal');
+  showModalNarrative(action==='kill' ? 'Ты наносишь последний удар. Ярость утихает, но горечь внутри взывает к мести.' : 'Ты разворачиваешься и покидаешь пещеру, оставляя демона умирать.', ()=>{
+    finishIntroAndGoToTown();
+  });
+}
+function finishIntroAndGoToTown() { player.storyPhase = 1; enterTown(); }
+
+function enterTown() {
+  townEntered = true;
+  showModalNarrative('Ты приносишь котёнка в город. Старейшина, увидев кольцо, плачет: «Откуда у тебя это кольцо? Это же кольцо жизни Кайла! Где он?» Ты рассказываешь о случившемся. Город скорбит по Кайлу. Старейшина говорит: «Кайл был лучшим из нас. Кольцо жизни спасло тебя, оно дарует +20 HP. Мы позаботимся о котёнке. А ты – наша надежда. Заглядывай в гильдию, у нас есть задание для тебя.»', ()=>{
+    player.gold += 80;
+    player.inventory.health_potion = (player.inventory.health_potion||0)+3;
+    player.inventory.mana_potion = (player.inventory.mana_potion||0)+2;
+    gameFlags.guildUnlocked = true;
+    initQuests();
+    player.newQuestsAvailable = 1;
+    refreshUI();
+  });
+}
+
+function showModalNarrative(text, callback) {
+  document.getElementById('result-content').innerHTML = `<p>${text}</p><button id="narrative-next">Далее</button>`;
+  document.getElementById('narrative-next').onclick = ()=>{ closeModal('result-modal'); if(callback) callback(); };
+  document.getElementById('result-modal').style.display = 'flex';
+}
+
+function showResult(log) {
+  document.getElementById('result-content').innerHTML = `<h3>Результат</h3><p style="white-space:pre-line">${log}</p><button onclick="closeModal('result-modal')">OK</button>`;
+  document.getElementById('result-modal').style.display = 'flex';
+}
+function initQuests() {
+  quests = [
+    { name:"Угроза гоблинов", desc:"Убей 5 гоблинов", target:"гоблин", progress:0, max:5, reward:"50 зол, 30 XP", completed:false, seen:false },
+    { name:"Сбор трав", desc:"Собери 4 травы", target:"herb", progress:0, max:4, reward:"Зелье здоровья", completed:false, seen:false }
+  ];
+}
+
+function addQuest(quest) {
+  quests.push(quest);
+  player.newQuestsAvailable++;
+}
+
+function updateQuests(type, target) {
+  quests.forEach(q => {
+    if (q.completed) return;
+    if (type==='kill' && target && target.toLowerCase().includes(q.target)) {
+      q.progress++;
+    }
+    if (type==='collect' && target===q.target) {
+      q.progress = Math.min(q.max, player.inventory[target]||0);
+    }
+    if (q.progress >= q.max) {
+      q.completed = true;
+      if (q.reward.includes('зол')) {
+        let parts = q.reward.split(',');
+        player.gold += parseInt(parts[0])||0;
+        player.exp += parseInt(parts[1])||0;
+      } else if (q.reward.includes('Зелье')) {
+        player.inventory.health_potion = (player.inventory.health_potion||0)+1;
+      }
+      showModalNarrative(`Квест "${q.name}" выполнен! Награда: ${q.reward}`, ()=>{});
+      refreshUI();
+    }
+  });
+}
+
+function checkNewQuests() {
+  if (!townEntered) return;
+  if (player.level >= 3 && quests.filter(q=>q.target==='скелет').length===0) {
+    addQuest({ name:"Руины", desc:"Убей 3 скелетов", target:"скелет", progress:0, max:3, reward:"40 зол, 25 XP", completed:false, seen:false });
+  }
+  if (player.level >= 5 && quests.filter(q=>q.target==='crystal_dust').length===0) {
+    addQuest({ name:"Кристаллы", desc:"Собери 3 крист. пыли", target:"crystal_dust", progress:0, max:3, reward:"Большое зелье маны", completed:false, seen:false });
+  }
+  refreshUI();
+}
+
+function generateMonster() {
+  const monsters = [
+    { name:"Гоблин-разбойник", baseHp:68, atk:9, def:3, desc:"Мелкий воришка." },
+    { name:"Скелет-страж", baseHp:83, atk:11, def:4, desc:"Восставший рыцарь." },
+    { name:"Лесной волк", baseHp:60, atk:12, def:2, desc:"Голодный хищник." },
+    { name:"Ядовитый паук", baseHp:53, atk:8, def:2, desc:"Смертельный укус." },
+    { name:"Каменный голем", baseHp:113, atk:7, def:9, desc:"Древний страж." },
+    { name:"Теневой маг", baseHp:75, atk:10, def:4, desc:"Адепт чёрной магии." },
+    { name:"Пещерный тролль", baseHp:140, atk:15, def:7, desc:"Громила из глубин." }
+  ];
+  let base = monsters[Math.floor(Math.random()*monsters.length)];
+  let lvl = Math.max(1, player.level + Math.floor(Math.random()*3)-1);
+  return {
+    name:base.name, level:lvl, maxHp:base.baseHp + lvl*5, hp:base.baseHp + lvl*5,
+    attack:base.atk+lvl*2, defense:base.def+lvl, abilities:[],
+    expReward:15+lvl*5, goldReward:10+lvl*3,
+    lootTable:[ ["health_potion",0.2], ["herb",0.5], ["mushroom",0.3], ["crystal_dust",0.15] ],
+    desc:base.desc
+  };
+}
+
+function startBattle(monster) {
+  currentMonster = monster;
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('battle-screen').style.display = 'block';
+  document.getElementById('battle-log').innerHTML = '';
+  document.getElementById('enemy-name').textContent = `${monster.name} (ур.${monster.level})`;
+  document.getElementById('enemy-desc').textContent = monster.desc || '';
+  if (player.storyPhase !== 0) {
+    document.getElementById('btn-talk').classList.remove('locked');
+    document.getElementById('btn-steal').classList.remove('locked');
+  }
+  player.blessRounds = 0; player.hasteDoubleChance = 0; player.activeBuffs = [];
+  updateBattleUI(); updateDamageRange();
+}
+
+function updateBattleUI() {
+  let m=currentMonster, p=player;
+  document.getElementById('hero-hp-battle').textContent = `❤️ ${p.hp}/${p.maxHp}`;
+  document.getElementById('hero-mp-battle').textContent = `💧 ${p.mp}/${p.maxMp}`;
+  document.getElementById('battle-hero-hp-bar').style.width = (p.hp/p.maxHp*100)+'%';
+  document.getElementById('battle-hero-hp-text').textContent = `${p.hp}/${p.maxHp}`;
+  document.getElementById('enemy-hp-bar').style.width = (m.hp/m.maxHp*100)+'%';
+  document.getElementById('enemy-hp-text').textContent = `${m.hp}/${m.maxHp}`;
+  updateDamageRange();
+}
+
+function updateDamageRange() {
+  let p=player, m=currentMonster;
+  let minDmg = Math.max(p.attack - m.defense - 2, 0);
+  let maxDmg = Math.max(p.attack - m.defense + 3, 0);
+  document.getElementById('dmg-range').textContent = `(${minDmg}-${maxDmg})`;
+}
+
+function battleAction(action) {
+  if (!currentMonster || player.hp<=0) return;
+  let m=currentMonster, p=player, log='', done=false;
+  if (p.statusEffects.includes('poison')) {
+    let dmg = Math.max(1, Math.floor(p.maxHp*0.05));
+    p.hp -= dmg; log += `💀 Яд наносит ${dmg} урона!\n`;
+  }
+  let doubleAttack = p.hasteDoubleChance > 0 && Math.random()*100 < p.hasteDoubleChance;
+  if (action==='attack') {
+    let baseDmg = p.attack + Math.floor(Math.random()*5)-2 - m.defense;
+    let dmg = Math.max(baseDmg, 0);
+    if (p.blessRounds > 0) { dmg = Math.max(p.attack - m.defense + 3, 0); log += '🙏 Благословение! '; }
+    if (Math.random()*100 < p.critChance) { dmg = Math.floor(dmg*1.8); log += '💥 Крит! '; }
+    m.hp -= dmg; log += `Ты атакуешь и наносишь ${dmg} урона.\n`;
+    if (doubleAttack) {
+      let dmg2 = Math.max(p.attack + Math.floor(Math.random()*3)-2 - m.defense, 0);
+      if (p.blessRounds > 0) dmg2 = Math.max(p.attack - m.defense + 3, 0);
+      m.hp -= dmg2; log += `💨 Второй удар! +${dmg2} урона!\n`;
+    }
+    if (p.blessRounds > 0) p.blessRounds--;
+    done = true;
+  } else if (action==='talk') { showNegotiationMenu(); return; }
+  else if (action==='steal') {
+    if (Math.random()<0.4) { let stolen = 5+Math.floor(Math.random()*10); p.gold+=stolen; log+=`Украдено ${stolen} зол.\n`; done=true; }
+    else { log+='Провал!\n'; let dmg = Math.max(m.attack-p.defense,0); p.hp-=dmg; log+=`Враг бьёт на ${dmg}.\n`; done=true; }
+  } else if (action==='item') { openBattleItemMenu(); return; }
+  else if (action==='escape') {
+    if (Math.random()<0.4) { log+='Сбежал!\n'; endBattle('escape'); return; }
+    else { log+='Побег не удался.\n'; done=true; }
+  }
+  if (m.hp <= 0) {
+    log += `💀 ${m.name} повержен!\n`;
+    p.gold += m.goldReward; p.exp += m.expReward; p.monstersKilled++;
+    log += `+${m.expReward} опыта, +${m.goldReward} золота.\n`;
+    if (m.lootTable) m.lootTable.forEach(([item,chance])=>{ if(Math.random()<chance){ p.inventory[item]=(p.inventory[item]||0)+1; log+=`Найден ${ITEMS_DB[item].name}\n`; } });
+    if (Math.random()<0.15) {
+      let slots = ['weapon','body','head','shield','boots','amulet','ring1','ring2','gloves'];
+      let slot = slots[Math.floor(Math.random()*slots.length)];
+      let eq = generateRandomEquipment(slot);
+      if (!p.inventory[eq.name]) p.inventory[eq.name] = {item:eq, qty:0};
+      p.inventory[eq.name].qty++;
+      log += `⚡ Выпал предмет: ${eq.name}\n`;
+    }
+    checkLevelUp();
+    updateQuests('kill', m.name);
+    showResult(log);
+    endBattle('victory');
+    return;
+  }
+  if (m.hp>0 && done) {
+    let dmg = Math.max(m.attack - p.defense + Math.floor(Math.random()*3)-1, 0);
+    let activeFire = p.activeBuffs.find(b=>b.id==='fireSpirit');
+    if (activeFire && activeFire.damageReduction) dmg = Math.floor(dmg * (1 - activeFire.damageReduction));
+    if (Math.random()*100 < p.dodgeChance) log+='🌀 Уклон!\n';
+    else { p.hp-=dmg; log+=`${m.name} наносит ${dmg} урона.\n`; }
+    if (p.hp<=0) { log+='💔 Ты пал...\n'; let lostGold = Math.floor(p.gold*0.2); p.gold-=lostGold; p.exp=Math.floor(p.exp*0.8); p.hp=1; log+=`Потеряно ${lostGold} золота.\n`; showResult(log); endBattle('defeat'); return; }
+  }
+  p.activeBuffs = p.activeBuffs.filter(b => { b.remainingRounds--; if (b.remainingRounds<=0) { if(b.bonusDef) p.defense-=b.bonusDef; if(b.bonusDodge) p.dodgeChance-=b.bonusDodge; if(b.doubleAtkChance) p.hasteDoubleChance=0; return false; } return true; });
+  p.mp = Math.min(p.maxMp, p.mp+1);
+  updateBattleUI();
+  addLog('battle-log', log);
+}
+
+function endBattle(result) {
+  document.getElementById('battle-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'block';
+  if (result==='victory') checkLevelUp();
+  if (result==='victory' && player.storyPhase===0 && currentMonster && currentMonster.name==="Демон") postDemonBattle();
+  else refreshUI();
+}
+
+function checkLevelUp() {
+  while (player.exp >= player.level*30) {
+    player.exp -= player.level*30;
+    player.level++; player.talentPoints++;
+    showModalNarrative(`🌟 Уровень ${player.level}! +1 очко талантов.`, ()=>{});
+    updatePlayerStats();
+    checkNewQuests();
+  }
+  refreshUI();
+}
+function openBattleItemMenu() {
+  let html = '<h3>🎒 Использовать</h3>';
+  let items = Object.entries(player.inventory).filter(([id,qty])=>ITEMS_DB[id]?.type==='consumable' && qty>0)
+    .sort(([a],[b])=> (ITEMS_DB[a]?.name.includes('Большое')?0:1) - (ITEMS_DB[b]?.name.includes('Большое')?0:1) );
+  items.forEach(([id,qty]) => {
+    let item = ITEMS_DB[id];
+    let color = id.includes('mana')?'#533483': (id==='antidote'?'#1e8449':'#e94560');
+    html += `<button style="background:${color};" onclick="useBattleItem('${id}')">${item.name} x${qty}</button>`;
+  });
+  html += '<button onclick="closeModal(\'result-modal\')">Отмена</button>';
+  document.getElementById('result-content').innerHTML = html;
+  document.getElementById('result-modal').style.display = 'flex';
+}
+
+function useBattleItem(id) {
+  closeModal('result-modal');
+  let item = ITEMS_DB[id];
+  if (!item || player.inventory[id]<=0) return;
+  player.inventory[id]--;
+  let log = '';
+  if (item.effect==='heal') {
+    let heal = Math.min(player.maxHp-player.hp, item.value);
+    player.hp += heal; log += `Выпил ${item.name} (+${heal} HP)\n`;
+  } else if (item.effect==='mana') {
+    let mana = Math.min(player.maxMp-player.mp, item.value);
+    player.mp += mana; log += `Выпил ${item.name} (+${mana} MP)\n`;
+  } else if (item.effect==='cure_poison') { player.statusEffects=player.statusEffects.filter(e=>e!=='poison'); log+=`Яд исцелён\n`; }
+  addLog('battle-log', log);
+  updateBattleUI();
+  let m=currentMonster;
+  let dmg = Math.max(m.attack - player.defense + Math.floor(Math.random()*3)-1, 0);
+  if (Math.random()*100 < player.dodgeChance) addLog('battle-log','🌀 Уклон!\n');
+  else { player.hp -= dmg; addLog('battle-log',`${m.name} наносит ${dmg} урона.\n`); }
+  if (player.hp<=0) { addLog('battle-log','💔 Ты пал...\n'); endBattle('defeat'); }
+}
+
+function hasBuff(id) { return player.activeBuffs.some(b=>b.id===id); }
+function hasEnemyDebuff(id) { return currentMonster.activeBuffs?.some(b=>b.id===id); }
+
+function isSpellUnlocked(id) {
+  const req = { fireball:0, blind:0, iceLance:0, haste:1, stoneSkin:1, blessing:2, slow:2, lightning:2, prayer:3, fireSpirit:3, mountainHeal:3, windCurse:3 };
+  return player.talents.knowledge >= (req[id]||0);
+}
+
+function getSpellInfo(id) {
+  let p=player;
+  const spells = {
+    fireball: { name:"Огненный шар", elem:'fire', costs:[15,12,12], dmg:()=>p.magicPower*2 + (p.fireSkill===1?p.fireSkill*2:p.fireSkill===3?p.fireSkill*5:p.fireSkill*2), desc:"Базовое заклинание огня." },
+    blind: { name:"Ослепление", elem:'fire', costs:[8,8,6], dmg:()=>p.magicPower + p.fireSkill + (p.fireSkill===1?-3:p.fireSkill===3?3:0), effect:()=>Math.random()<(p.fireSkill===1?0.5:0.75)?'enemy_skip':null, desc:"Шанс ослепить врага." },
+    iceLance: { name:"Ледяная стрела", elem:'water', costs:[10,10,8], dmg:()=>(p.waterSkill===1?p.magicPower+5:p.magicPower+9)+p.waterSkill*2, effect:()=>{ currentMonster.attack=Math.max(0,currentMonster.attack-(p.waterSkill===1?2:p.waterSkill===2?3:5)); if (!currentMonster.activeBuffs) currentMonster.activeBuffs=[]; currentMonster.activeBuffs.push({id:'iceLance'}); }, desc:"Снижает атаку врага." },
+    blessing: { name:"Благословение", elem:'water', costs:[15,10,7], effect:()=>{ player.blessRounds=p.waterSkill===3?5:3; return'bless'; }, desc:"Максимальный урон на несколько раундов." },
+    haste: { name:"Ускорение", elem:'air', costs:[12,9,8], effect:()=>{ let bonus=p.airSkill===1?20:p.airSkill===2?30:45; let dc=p.airSkill===1?5:p.airSkill===2?10:15; player.dodgeChance+=bonus; player.hasteDoubleChance=dc; player.activeBuffs.push({id:'haste', remainingRounds:player.magicPower>=2?player.magicPower:2, bonusDodge:bonus, doubleAtkChance:dc}); return'haste'; }, desc:"Повышает уклонение и шанс двойной атаки." },
+    lightning: { name:"Молния", elem:'air', costs:[18,14,14], dmg:()=>p.magicPower*3 + (p.airSkill===1?p.airSkill*3:p.airSkill===3?p.airSkill*6+4:p.airSkill*3), desc:"Мощный урон воздухом." },
+    slow: { name:"Замедление", elem:'earth', costs:[10,6,6], effect:()=>{ let red=p.earthSkill===3?6:3; currentMonster.attack=Math.max(0,currentMonster.attack-red); currentMonster.defense=Math.max(0,currentMonster.defense-red); if (!currentMonster.activeBuffs) currentMonster.activeBuffs=[]; currentMonster.activeBuffs.push({id:'slow'}); return'slow'; }, desc:"Снижает атаку и защиту врага." },
+    stoneSkin: { name:"Каменная кожа", elem:'earth', costs:[12,6,6], effect:()=>{ let bonus=p.earthSkill===1?4:p.earthSkill===3?10:4; player.defense+=bonus; player.activeBuffs.push({id:'stoneSkin', remainingRounds:player.magicPower>=2?player.magicPower:2, bonusDef:bonus}); return'stoneSkin'; }, desc:"Увеличивает защиту." },
+    prayer: { name:"Молитва", elem:'water', cost:16, effect:()=>{ player.dodgeChance+=30; player.defense+=10; player.activeBuffs.push({id:'prayer', remainingRounds:player.magicPower>=2?player.magicPower:2, bonusDodge:30, bonusDef:10}); return'prayer'; }, desc:"Сочетает ускорение и каменную кожу." },
+    fireSpirit: { name:"Дух огня", elem:'fire', cost:14, effect:()=>{ let absorb=0.2+player.fireSkill*0.15; player.activeBuffs.push({id:'fireSpirit', remainingRounds:3, damageReduction:absorb}); return'fireSpirit'; }, desc:"Поглощает часть урона." },
+    mountainHeal: { name:"Горное исцеление", elem:'earth', cost:12, effect:()=>{ let healPct=0.1+player.earthSkill*0.05; let heal=Math.floor(player.maxHp*healPct); player.hp=Math.min(player.maxHp, player.hp+heal); return'heal'; }, desc:"Восстанавливает здоровье." },
+    windCurse: { name:"Проклятье ветров", elem:'air', cost:14, effect:()=>{ currentMonster.attack=Math.max(0,currentMonster.attack-3); currentMonster.minDamage=true; return'windCurse'; }, desc:"Снижает атаку врага, враг наносит минимальный урон." }
+  };
+  return spells[id];
+}
+
+function openMagicMenu() {
+  let html = '<h3>🔮 Магия</h3>';
+  html += `<p>🔥 ${player.fireSkill} 💧 ${player.waterSkill} 🌍 ${player.earthSkill} 💨 ${player.airSkill}</p>`;
+  let allIds = ['fireball','blind','iceLance','haste','stoneSkin','blessing','slow','lightning','prayer','fireSpirit','mountainHeal','windCurse'];
+  allIds.forEach(id => {
+    if (!isSpellUnlocked(id)) return;
+    let info = getSpellInfo(id);
+    if (!info) return;
+    let color = '#555';
+    if (info.elem==='fire') color='#e67e22';
+    else if (info.elem==='water') color='#3498db';
+    else if (info.elem==='earth') color='#27ae60';
+    else if (info.elem==='air') color='#85c1e9';
+    let cost = Array.isArray(info.costs) ? info.costs[player[info.elem+'Skill']-1] : info.cost;
+    let dmg = info.dmg ? info.dmg() : '';
+    let isHigh = ['prayer','fireSpirit','mountainHeal','windCurse'].includes(id);
+    html += `<button style="background:${color}; ${isHigh?'border:2px solid gold;':''}" onclick="castSpell('${id}')">${info.name} (${cost} MP) ${dmg?'урон '+dmg:''}</button>`;
+  });
+  html += '<button onclick="closeModal(\'magic-modal\')">Отмена</button>';
+  document.getElementById('magic-content').innerHTML = html;
+  document.getElementById('magic-modal').style.display = 'flex';
+}
+
+function castSpell(id) {
+  closeModal('magic-modal');
+  let info = getSpellInfo(id);
+  if (!info) return;
+  let p=player, m=currentMonster, log='';
+  let cost = Array.isArray(info.costs) ? info.costs[p[info.elem+'Skill']-1] : info.cost;
+  if (p.mp < cost) { addLog('battle-log','Недостаточно MP.'); return; }
+  if (id==='haste' && hasBuff('haste')) { addLog('battle-log','Ускорение уже активно.'); return; }
+  if (id==='stoneSkin' && hasBuff('stoneSkin')) { addLog('battle-log','Каменная кожа уже активна.'); return; }
+  if (id==='prayer' && hasBuff('prayer')) { addLog('battle-log','Молитва уже активна.'); return; }
+  if (id==='blessing' && p.blessRounds>0) { addLog('battle-log','Благословение уже активно.'); return; }
+  if (id==='slow' && hasEnemyDebuff('slow')) { addLog('battle-log','Враг уже замедлен.'); return; }
+  if (id==='iceLance' && hasEnemyDebuff('iceLance')) { addLog('battle-log','Атака врага уже снижена ледяной стрелой.'); return; }
+  if (id==='fireSpirit' && hasBuff('fireSpirit')) { addLog('battle-log','Дух огня уже активен.'); return; }
+  p.mp -= cost;
+  if (info.elem && p[info.elem+'Skill'] < 3) {
+    p[info.elem+'Exp'] = (p[info.elem+'Exp']||0) + 1;
+    let needed = p[info.elem+'Skill'] * 5;
+    if (p[info.elem+'Exp'] >= needed) {
+      p[info.elem+'Exp'] -= needed;
+      p[info.elem+'Skill']++;
+      log += `🌟 Уровень магии ${info.elem} повышен до ${p[info.elem+'Skill']}!\n`;
+    }
+  }
+  let skipEnemy = false;
+  if (info.dmg) { let dmg = info.dmg(); m.hp -= dmg; log += `🔮 ${info.name} наносит ${dmg} урона. `; }
+  if (info.effect) {
+    let result = info.effect();
+    if (result==='enemy_skip') skipEnemy = true;
+    else if (result==='haste') log += '💨 Ускорение! ';
+    else if (result==='bless') log += '🙏 Благословение! ';
+    else if (result==='stoneSkin') log += '🪨 Каменная кожа! ';
+    else if (result==='slow') log += '🌍 Замедление! ';
+    else if (result==='prayer') log += '🙏 Молитва! ';
+    else if (result==='fireSpirit') log += '🔥 Дух огня! ';
+    else if (result==='heal') log += `⛰️ Горное исцеление восстанавливает ${Math.floor(p.maxHp*(0.1+p.earthSkill*0.05))} HP! `;
+    else if (result==='windCurse') log += '💨 Проклятье ветров! ';
+  }
+  if (m.hp <= 0) {
+    log += `💀 ${m.name} повержен!\n`; p.gold += m.goldReward; p.exp += m.expReward; p.monstersKilled++;
+    log += `+${m.expReward} опыта, +${m.goldReward} золота.\n`;
+    showResult(log); endBattle('victory'); return;
+  }
+  if (!skipEnemy) {
+    let dmg = Math.max(m.attack - p.defense + Math.floor(Math.random()*3)-1, 0);
+    if (m.minDamage) { dmg = Math.max(m.attack - p.defense - 2, 0); m.minDamage = false; }
+    let activeFire = p.activeBuffs.find(b=>b.id==='fireSpirit');
+    if (activeFire && activeFire.damageReduction) dmg = Math.floor(dmg * (1 - activeFire.damageReduction));
+    if (Math.random()*100 < p.dodgeChance) log += '🌀 Уклон!\n';
+    else { p.hp -= dmg; log += `${m.name} наносит ${dmg} урона.\n`; }
+    if (p.hp <= 0) { log += '💔 Ты пал...\n'; showResult(log); endBattle('defeat'); return; }
+  }
+  p.mp = Math.min(p.maxMp, p.mp+1);
+  updateBattleUI();
+  addLog('battle-log', log);
+}
+
+function showNegotiationMenu() {
+  let html = '<h3>💬 Переговоры</h3>';
+  html += '<button onclick="negotiate(\'persuade\')">Убедить</button><button onclick="negotiate(\'intimidate\')">Запугать</button><button onclick="negotiate(\'bribe\')">Подкупить (10 зол)</button>';
+  html += '<button onclick="closeModal(\'result-modal\')">Отмена</button>';
+  document.getElementById('result-content').innerHTML = html;
+  document.getElementById('result-modal').style.display = 'flex';
+}
+
+function negotiate(type) {
+  closeModal('result-modal');
+  let m=currentMonster, p=player, log='';
+  if (type==='persuade') { if (Math.random()<0.4) { log+='Враг ушёл.\n'; showResult(log); endBattle('peace'); return; } else { log+='Не вышло.\n'; } }
+  else if (type==='intimidate') { if (Math.random()<0.5) { log+='Враг сбежал!\n'; showResult(log); endBattle('peace'); return; } else { log+='Провал.\n'; m.attack+=3; } }
+  else if (type==='bribe') { if (p.gold>=10) { p.gold-=10; log+='Заплатил, враг ушёл.\n'; showResult(log); endBattle('peace'); return; } else { log+='Нет денег!\n'; } }
+  let dmg = Math.max(m.attack-p.defense+Math.floor(Math.random()*3)-1,0);
+  if (Math.random()*100 < p.dodgeChance) log+='🌀 Уклон!\n';
+  else { p.hp-=dmg; log+=`${m.name} наносит ${dmg} урона.\n`; }
+  addLog('battle-log', log);
+  if (p.hp<=0) { showResult(log); endBattle('defeat'); }
+  else updateBattleUI();
+}
+function explore() {
+  let html = '<h3>🌲 Куда?</h3>';
+  html += '<button onclick="exploreLocation(\'forest\')">Тёмный лес</button><button onclick="exploreLocation(\'cave\')">Заброшенная пещера</button><button onclick="exploreLocation(\'ruins\')">Древние руины</button>';
+  html += '<button onclick="closeModal(\'explore-modal\')">Назад</button>';
+  document.getElementById('explore-content').innerHTML = html;
+  document.getElementById('explore-modal').style.display = 'flex';
+}
+
+function exploreLocation(loc) {
+  closeModal('explore-modal');
+  let event = Math.random();
+  if (event<0.7) startBattle(generateMonster());
+  else if (event<0.85) {
+    let loot = Math.random();
+    if (loot<0.5) { player.inventory.health_potion=(player.inventory.health_potion||0)+1; alert('Сундук с зельем!'); }
+    else if (loot<0.8) { player.gold+=30; alert('30 золота!'); }
+    else { let dmg=10+Math.floor(Math.random()*15); player.hp-=dmg; alert(`Ловушка! -${dmg} HP`); }
+    refreshUI();
+  } else if (event<0.95) {
+    if (Math.random()<0.5) { player.hp=player.maxHp; player.mp=player.maxMp; alert('Алтарь исцелил!'); }
+    else { player.attack+=2; alert('+2 атаки!'); updatePlayerStats(); }
+    refreshUI();
+  } else alert('Ничего интересного...');
+  updateQuests('collect');
+}
+
+const BOSSES = [
+  { name:"Теневой дракон", level:5, hp:360, atk:54, def:8, desc:"Древний ящер.", story:"Первый страж Ферро повержен." },
+  { name:"Ледяной элементаль", level:8, hp:450, atk:66, def:10, desc:"Стужа.", story:"Холодная ярость Ферро рассеяна." },
+  { name:"Демон Хаоса", level:11, hp:600, atk:84, def:12, desc:"Исчадие бездны.", story:"Хаос отступает." },
+  { name:"Отродье Пропасти", level:16, hp:840, atk:90, def:15, desc:"Безымянный ужас.", story:"Тьма сгущается." },
+  { name:"Фальшивый Дионис", level:21, hp:1050, atk:105, def:20, desc:"Иллюзорный бог.", story:"Правда раскрыта." },
+  { name:"Цербер", level:27, hp:1260, atk:120, def:25, desc:"Трёхглавый страж.", story:"Врата ада закрыты." },
+  { name:"Ферро", level:35, hp:1650, atk:150, def:30, desc:"Тёмный колдун.", story:"Ферро пал. Месть свершилась." }
+];
+
+function openBossMenu() {
+  let html = '<h3>👑 Боссы</h3>';
+  BOSSES.forEach((b, i) => {
+    let killed = player.bossesKilled.includes(b.name);
+    let prevKilled = i===0 || player.bossesKilled.includes(BOSSES[i-1].name);
+    let ready = !killed && prevKilled && player.level >= b.level;
+    let label = killed ? '✅ Повержен' : (ready ? '⚔️ Сразиться' : '🔒 Ур.'+b.level);
+    html += `<button style="background:${killed?'#555':(ready?'#e94560':'#333')}" onclick="${ready?`startBossBattle('${b.name}')`:'void(0)'}">${b.name} (ур.${b.level}) ${label}</button>`;
+  });
+  html += '<button onclick="closeModal(\'result-modal\')">Закрыть</button>';
+  document.getElementById('result-content').innerHTML = html;
+  document.getElementById('result-modal').style.display = 'flex';
+}
+
+function startBossBattle(name) {
+  closeModal('result-modal');
+  let boss = BOSSES.find(b=>b.name===name);
+  if (!boss) return;
+  let monster = {
+    name:boss.name, level:boss.level, maxHp:boss.hp, hp:boss.hp,
+    attack:boss.atk, defense:boss.def, abilities:[], expReward:boss.level*30, goldReward:boss.level*20,
+    lootTable:[], desc:boss.desc, _story:boss.story
+  };
+  startBattle(monster);
+  let orig = endBattle;
+  endBattle = function(result) {
+    if (result==='victory') {
+      player.bossesKilled.push(name);
+      let eq1 = generateRandomEquipment('weapon', true);
+      let eq2 = generateRandomEquipment('body', true);
+      if (!player.inventory[eq1.name]) player.inventory[eq1.name] = {item:eq1, qty:0};
+      player.inventory[eq1.name].qty++;
+      if (!player.inventory[eq2.name]) player.inventory[eq2.name] = {item:eq2, qty:0};
+      player.inventory[eq2.name].qty++;
+      player.inventory.crystal_dust = (player.inventory.crystal_dust||0)+3;
+      player.inventory.big_mana_potion = (player.inventory.big_mana_potion||0)+1;
+      let lootLog = `Получено: ${eq1.name}, ${eq2.name}, 3 крист. пыли, Большое зелье маны.`;
+      showModalNarrative(boss.story, ()=>{
+        showResult(`Победа над ${name}!\n+${monster.expReward} XP, +${monster.goldReward} зол.\n${lootLog}`);
+      });
+      if (name==='Ферро') setTimeout(()=>showVictoryScreen(), 800);
+    }
+    orig(result);
+    endBattle = orig;
+  };
+}
+
+function showVictoryScreen() {
+  let vict = document.createElement('div');
+  vict.className = 'victory-screen';
+  vict.innerHTML = `<div class="victory-text">Ты отомстил за Кайла!</div><div class="victory-sub">Стражи Октализиса благодарят тебя.</div><button onclick="this.parentElement.remove()" style="padding:10px 20px;background:#f5a623;border:none;border-radius:8px;color:#000;">Закрыть</button>`;
+  document.body.appendChild(vict);
+}
+function openShop() {
+  if (shopEquipCache.length===0) {
+    let slots = ['weapon','body','head','shield','boots','amulet','gloves'];
+    for (let i=0; i<2; i++) {
+      let slot = slots[Math.floor(Math.random()*slots.length)];
+      shopEquipCache.push(generateRandomEquipment(slot));
+    }
+  }
+  let html = `<h3>🏪 Магазин (💰 ${player.gold})</h3>`;
+  html += `<p>🧪 <b>Зелья:</b></p>`;
+  html += `<button style="background:#e94560;" onclick="buyItem('health_potion')">Зелье здоровья (15 зол) +40 HP</button>`;
+  html += `<button style="background:#e94560;" onclick="buyItem('big_health_potion')">Большое зелье здоровья (30 зол) +90 HP</button>`;
+  html += `<button style="background:#533483;" onclick="buyItem('mana_potion')">Зелье маны (20 зол) +30 MP</button>`;
+  html += `<button style="background:#533483;" onclick="buyItem('big_mana_potion')">Большое зелье маны (35 зол) +65 MP</button>`;
+  html += `<button style="background:#1e8449;" onclick="buyItem('antidote')">Антидот (10 зол)</button>`;
+  html += `<p>⚔️ <b>Снаряжение:</b></p>`;
+  shopEquipCache.forEach((eq, i) => {
+    let price = 40 + Math.floor((eq.atk||eq.def||eq.dodge||eq.hp||0)*10);
+    let desc = '';
+    if (eq.atk) desc += ` +${eq.atk} атаки`;
+    if (eq.def) desc += ` +${eq.def} защиты`;
+    if (eq.dodge) desc += ` +${eq.dodge}% уклонения`;
+    if (eq.hp) desc += ` +${eq.hp} HP`;
+    if (eq.critBonus) desc += ` +${eq.critBonus}% крита`;
+    if (eq.fire) desc += ` +${eq.fire} магии огня`;
+    html += `<button style="background:#9b59b6;" onclick="buyShopEquip(${i})">${eq.name} (${eq.slot}) - ${price} зол ${desc}</button>`;
+  });
+  html += `<button style="background:#c0392b;" onclick="sellItem()">💰 Продать предмет</button>`;
+  html += '<button onclick="closeModal(\'shop-modal\')">Закрыть</button>';
+  document.getElementById('shop-content').innerHTML = html;
+  document.getElementById('shop-modal').style.display = 'flex';
+}
+
+function buyItem(id) {
+  let item = ITEMS_DB[id];
+  if (player.gold >= item.price) {
+    player.gold -= item.price;
+    player.inventory[id] = (player.inventory[id]||0)+1;
+    alert(`Куплен ${item.name}`);
+    refreshUI(); openShop();
+  } else alert('Недостаточно золота!');
+}
+
+function buyShopEquip(index) {
+  let eq = shopEquipCache[index];
+  let price = 40 + Math.floor((eq.atk||eq.def||eq.dodge||eq.hp||0)*10);
+  if (player.gold >= price) {
+    player.gold -= price;
+    if (!player.inventory[eq.name]) player.inventory[eq.name] = {item:eq, qty:0};
+    player.inventory[eq.name].qty++;
+    alert(`Куплен ${eq.name}`);
+    shopEquipCache.splice(index,1);
+    refreshUI(); openShop();
+  } else alert('Недостаточно золота!');
+}
+
+function sellItem() {
+  let html = '<h3>Продажа (полцены)</h3>';
+  for (let [id,val] of Object.entries(player.inventory)) {
+    let qty = (typeof val==='number')?val:val.qty;
+    if (qty<=0) continue;
+    let item = ITEMS_DB[id] || (val.item ? val.item : null);
+    if (!item) continue;
+    let price = Math.floor((item.price|| (10 + (item.atk||0)+(item.def||0)+(item.hp||0)))/2);
+    let color = ITEMS_DB[id]?.type==='consumable' ? (id.includes('mana')?'#533483':'#e94560') : (val.item ? '#9b59b6' : '#777');
+    html += `<button style="background:${color};" onclick="confirmSell('${id}', ${price})">${item.name} x${qty} - ${price} зол</button>`;
+  }
+  html += '<button onclick="openShop()">Назад</button>';
+  document.getElementById('shop-content').innerHTML = html;
+}
+
+function confirmSell(id, price) {
+  if (!player.inventory[id]) return;
+  if (typeof player.inventory[id] === 'number') {
+    player.inventory[id]--;
+    if (player.inventory[id]<=0) delete player.inventory[id];
+  } else {
+    player.inventory[id].qty--;
+    if (player.inventory[id].qty<=0) delete player.inventory[id];
+  }
+  player.gold += price;
+  showModalNarrative(`Продано за ${price} зол.`, ()=>{ sellItem(); });
+}
+
+function openInventory() {
+  let html = '<h3>🎒 Инвентарь</h3><div style="display:flex;flex-direction:column;gap:5px;">';
+  let slots = ['head','body','weapon','shield','amulet','boots','gloves','ring1','ring2'];
+  let labels = {head:'Шлем',body:'Броня',weapon:'Оружие',shield:'Щит',amulet:'Амулет',boots:'Сапоги',gloves:'Перчатки',ring1:'Кольцо 1',ring2:'Кольцо 2'};
+  slots.forEach(s=>{
+    let eq = player.equipment[s];
+    let desc = eq ? `${eq.name}` : 'пусто';
+    if (eq) { if(eq.atk) desc+=` +${eq.atk} атк`; if(eq.def) desc+=` +${eq.def} защ`; if(eq.dodge) desc+=` +${eq.dodge}% укл`; if(eq.hp) desc+=` +${eq.hp} HP`; if(eq.critBonus) desc+=` +${eq.critBonus}% крит`; }
+    html += `<div class="equip-slot"><span><b>${labels[s]}:</b> ${desc}</span>`;
+    if (eq) html += `<button onclick="unequip('${s}')">Снять</button>`;
+    html += `</div>`;
+  });
+  html += '</div><p><b>Предметы:</b></p>';
+  for (let [id,val] of Object.entries(player.inventory)) {
+    let qty = (typeof val==='number')?val:val.qty;
+    if (qty<=0) continue;
+    let item = ITEMS_DB[id];
+    if (item) {
+      html += `<p>${item.name} x${qty}`;
+      if (item.type==='consumable') html += ` <button onclick="useItem('${id}')">Использовать</button>`;
+      else html += ' <span class="gray">(материал)</span>';
+    } else {
+      let eq = (typeof val==='object' && val.item)?val.item:null;
+      if (eq) {
+        html += `<p>${eq.name} x${qty} (${eq.slot}) `;
+        if (eq.atk) html+=`+${eq.atk} атк `;
+        if (eq.def) html+=`+${eq.def} защ `;
+        if (eq.critBonus) html+=`+${eq.critBonus}% крит `;
+        html += `<button onclick="equipItem('${id}')">Надеть</button></p>`;
+      }
+    }
+    html += `</p>`;
+  }
+  html += '<button onclick="closeModal(\'inventory-modal\')">Закрыть</button>';
+  document.getElementById('inventory-content').innerHTML = html;
+  document.getElementById('inventory-modal').style.display = 'flex';
+}
+
+function useItem(id) {
+  let item = ITEMS_DB[id];
+  if (!item || item.type!=='consumable' || !player.inventory[id] || player.inventory[id]<=0) return;
+  player.inventory[id]--;
+  if (item.effect==='heal') { let real = Math.min(player.maxHp-player.hp, item.value); player.hp+=real; alert(`+${real} HP`); }
+  else if (item.effect==='mana') { let real = Math.min(player.maxMp-player.mp, item.value); player.mp+=real; alert(`+${real} MP`); }
+  else if (item.effect==='cure_poison') { player.statusEffects=player.statusEffects.filter(e=>e!=='poison'); alert('Яд исцелён'); }
+  refreshUI(); openInventory();
+}
+
+function equipItem(itemKey) {
+  let invEntry = player.inventory[itemKey];
+  if (!invEntry || !invEntry.item) return;
+  let eq = invEntry.item;
+  if (!eq.slot) return;
+  if (player.equipment[eq.slot]) {
+    let old = player.equipment[eq.slot];
+    player.equipment[eq.slot] = null;
+    if (!player.inventory[old.name]) player.inventory[old.name] = {item:old, qty:0};
+    player.inventory[old.name].qty++;
+  }
+  player.equipment[eq.slot] = eq;
+  invEntry.qty--;
+  if (invEntry.qty<=0) delete player.inventory[itemKey];
+  updatePlayerStats(); refreshUI(); openInventory();
+}
+
+function unequip(slot) {
+  let eq = player.equipment[slot];
+  if (!eq) return;
+  player.equipment[slot] = null;
+  if (!player.inventory[eq.name]) player.inventory[eq.name] = {item:eq, qty:0};
+  player.inventory[eq.name].qty++;
+  updatePlayerStats(); refreshUI(); openInventory();
+}
+
+// ========== КУБ КРАФТА ==========
+let craftSlots = [null, null, null, null];
+
+function openCraft() {
+  let html = '<h3>🔮 Магический куб</h3><div>';
+  for (let i=0; i<4; i++) {
+    let filled = craftSlots[i] ? 'filled' : '';
+    html += `<div class="craft-slot ${filled}" onclick="selectCraftSlot(${i})">${craftSlots[i] ? craftSlots[i].item.name.slice(0,6) : ''}</div>`;
+  }
+  html += '</div><button style="background:#9b59b6;" onclick="performCraft()">Преобразовать</button>';
+  html += '<button onclick="closeModal(\'craft-modal\')">Закрыть</button>';
+  document.getElementById('craft-content').innerHTML = html;
+  document.getElementById('craft-modal').style.display = 'flex';
+}
+
+function selectCraftSlot(index) {
+  let html = '<h3>Выбери предмет</h3>';
+  for (let [id,val] of Object.entries(player.inventory)) {
+    let qty = (typeof val==='number')?val:val.qty;
+    if (qty<=0) continue;
+    let item = (typeof val==='object' && val.item) ? val.item : ITEMS_DB[id];
+    if (!item || item.type==='consumable') continue;
+    html += `<button onclick="setCraftSlot(${index},'${id}')">${item.name||id} x${qty}</button>`;
+  }
+  html += '<button onclick="openCraft()">Назад</button>';
+  document.getElementById('craft-content').innerHTML = html;
+}
+
+function setCraftSlot(index, itemKey) {
+  let val = player.inventory[itemKey];
+  if (!val) return;
+  let item = (typeof val==='object' && val.item) ? val.item : ITEMS_DB[itemKey];
+  if (!item) return;
+  craftSlots[index] = { item, key:itemKey };
+  openCraft();
+}
+
+function performCraft() {
+  let s = craftSlots;
+  if (s[0] && s[1] && s[2] && s[0].item.slot==='weapon' &&
+      s[1].item.name==='Кристальная пыль' && s[2].item.name==='Кристальная пыль' &&
+      player.inventory[s[1].key]>=1 && player.inventory[s[2].key]>=1) {
+    let newAtk = (s[0].item.atk||0) + Math.floor(Math.random()*5)+1;
+    let result = { name:`Кристальный ${s[0].item.name}`, slot:'weapon', atk:newAtk, critBonus:5 };
+    removeCraftComponent(s[0].key);
+    removeCraftComponent(s[1].key); removeCraftComponent(s[2].key);
+    addCraftResult(result);
+    craftSlots.fill(null);
+    alert(`Создан ${result.name}!`);
+    if (!player.learnedRecipes.includes('crystal_sword')) player.learnedRecipes.push('crystal_sword');
+    openCraft(); updatePlayerStats(); refreshUI();
+    return;
+  }
+  if (s[0] && s[1] && s[2] && s[3] && s[0].item.slot==='body' &&
+      s[1].item.name==='Трава' && s[2].item.name==='Трава' && s[3].item.name==='Трава' &&
+      player.inventory[s[1].key]>=1 && player.inventory[s[2].key]>=1 && player.inventory[s[3].key]>=1) {
+    let newDef = (s[0].item.def||0) + Math.floor(Math.random()*4)+3;
+    let result = { name:`Броня-переплёт ${s[0].item.name}`, slot:'body', def:newDef, blockChance:5 };
+    removeCraftComponent(s[0].key);
+    removeCraftComponent(s[1].key); removeCraftComponent(s[2].key); removeCraftComponent(s[3].key);
+    addCraftResult(result);
+    craftSlots.fill(null);
+    alert(`Создан ${result.name}!`);
+    if (!player.learnedRecipes.includes('armor_weave')) player.learnedRecipes.push('armor_weave');
+    openCraft(); updatePlayerStats(); refreshUI();
+    return;
+  }
+  alert('Нет подходящего рецепта.');
+}
+
+function removeCraftComponent(key) {
+  if (typeof player.inventory[key] === 'number') {
+    player.inventory[key]--;
+    if (player.inventory[key]<=0) delete player.inventory[key];
+  } else {
+    player.inventory[key].qty--;
+    if (player.inventory[key].qty<=0) delete player.inventory[key];
+  }
+}
+
+function addCraftResult(result) {
+  if (!player.inventory[result.name]) player.inventory[result.name] = {item:result, qty:0};
+  player.inventory[result.name].qty++;
+}
+  function openTalents() {
+    let html = `<h3>🌟 Таланты (очков: ${player.talentPoints})</h3>`;
+    html += `<p>❤️ ${player.hp}/${player.maxHp} | 💧 ${player.mp}/${player.maxMp} | ⚔️ ${player.attack} | 🛡️ ${player.defense}</p>`;
+    html += `<p>🔥 ${player.fireSkill} 💧 ${player.waterSkill} 🌍 ${player.earthSkill} 💨 ${player.airSkill}</p>`;
+    let names = {might:'Сила', sorcery:'Чародейство', agility:'Ловкость', vitality:'Живучесть', knowledge:'Жажда знаний'};
+    let descs = {might:'Атака', sorcery:'Магия', agility:'Крит/Уклон', vitality:'HP', knowledge:'Заклинания'};
+    for (let [k,n] of Object.entries(names)) {
+      let cost = player.talents[k] + 1;
+      let canBuy = player.talents[k]<3 && player.talentPoints>=cost;
+      html += `<div class="talent-row"><span>${n} (${player.talents[k]}/3) - ${descs[k]} (${cost} очков)</span>`;
+      if (canBuy) html += `<button style="background:#27ae60;" onclick="upgradeTalent('${k}')">+</button>`;
+      html += `</div>`;
+    }
+    html += '<button onclick="closeModal(\'talents-modal\')">Закрыть</button>';
+    document.getElementById('talents-content').innerHTML = html;
+    document.getElementById('talents-modal').style.display = 'flex';
+  }
+
+  function upgradeTalent(key) {
+    let cost = player.talents[key] + 1;
+    if (player.talentPoints >= cost && player.talents[key]<3) {
+      player.talentPoints -= cost;
+      player.talents[key]++;
+      if (key==='knowledge') {
+        let msg = 'Новые заклинания: ';
+        if (player.talents.knowledge===1) msg += 'Ускорение, Каменная кожа';
+        else if (player.talents.knowledge===2) msg += 'Благословение, Замедление, Молния';
+        else if (player.talents.knowledge===3) msg += 'Молитва, Дух огня, Горное исцеление, Проклятье ветров';
+        showModalNarrative(msg, ()=>{});
+      }
+      updatePlayerStats(); refreshUI(); openTalents();
+    } else alert('Недостаточно очков или максимум.');
+  }
+
+  function openGuild() {
+    let html = '<button style="background:#9b59b6; margin-bottom:10px;" onclick="openLibrary()">📚 Библиотека</button><h3>📜 Гильдия</h3><p>Задания:</p>';
+    quests.forEach(q => {
+      if (!q.seen) q.seen = true;
+      html += `<p>${q.completed?'✅':''} <b>${q.name}</b>: ${q.desc} (${q.progress}/${q.max}) - ${q.reward}</p>`;
+    });
+    html += '<button onclick="closeModal(\'guild-modal\')">Закрыть</button>';
+    document.getElementById('guild-content').innerHTML = html;
+    document.getElementById('guild-modal').style.display = 'flex';
+    player.newQuestsAvailable = 0;
+    refreshUI();
+  }
+
+  function openLibrary() {
+    let html = '<h3>📚 Библиотека</h3><button onclick="showLibraryTab(\'magic\')">Магия</button><button onclick="showLibraryTab(\'craft\')">Крафт</button><div id="library-inner"></div>';
+    document.getElementById('library-content').innerHTML = html;
+    showLibraryTab('magic');
+    document.getElementById('library-modal').style.display = 'flex';
+  }
+
+  function showLibraryTab(tab) {
+    let html = '';
+    if (tab==='magic') {
+      html = '<h4>Изученные заклинания</h4>';
+      let allIds = ['fireball','blind','iceLance','haste','stoneSkin','blessing','slow','lightning','prayer','fireSpirit','mountainHeal','windCurse'];
+      allIds.forEach(id => {
+        if (!isSpellUnlocked(id)) return;
+        let info = getSpellInfo(id);
+        if (!info) return;
+        html += `<p><b>${info.name}</b> (${info.elem}): ${info.desc||''}</p>`;
+      });
+    } else {
+      html = '<h4>Известные рецепты</h4>';
+      html += '<p>Кристальный меч: Меч + 2 Кристальной пыли</p>';
+      html += '<p>Броня-переплёт: Броня + 3 Травы</p>';
+    }
+    document.getElementById('library-inner').innerHTML = html;
+  }
+
+  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+  window.onclick = function(e) { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; }
+
+  window.onload = function() { showScene('start'); };
+</script>
+</body>
+</html>
